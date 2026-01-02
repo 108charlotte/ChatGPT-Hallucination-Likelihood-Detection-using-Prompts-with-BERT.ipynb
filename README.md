@@ -36,11 +36,11 @@ Here's another example of training results from Kaggle:
 Ultimately, an approach like this would be able to successfully flag prompts which make models hallucination-prone, and could be adapted to work with different models (though using different datasets) or for different hallucination reduction strategies (more computationally expensive v. less computationally expensive) through changing the positive weighting (as I did in this example) to encourage higher recall, higher precision, or higher F1. 
 
 ## Future Improvements
-I would like to design a model with a higher F1 score and which can acheive a higher accuracy. In the future, it would be good to reduce the trade-off between catching true positives and the high occurences of false positives. 
+I would like to design a model with a higher F1 score and which can acheive a higher accuracy. In the future, it would be good to reduce the trade-off between catching true positives and the high occurences of false positives. I could also work on compiling a larger dataset, since most of the datasets I found only included hallucinations but not the prompts which inspired them, which made it difficult to find enough data to train my model. 
 
 ## Codebase Tour
 * Colab_for_Generating_Dataset_of_Prompts_with_Binary_Hallucination_Labels.ipynb: downloaded from Colab, my code for generating the final_dataset.csv file. Link to Colab [here](https://colab.research.google.com/drive/1bDYQKSXsFnlV4rk53V5sWFWzzFaQr-aB?usp=sharing)
-* * final_dataset.csv: the final dataset generated from the Colab above
+* final_dataset.csv: the final dataset generated from the Colab above
 * Google_Colab_BERT_Training.ipynb: downloaded from Colab, my code for training the final BERT model. Link to Colab [here](https://colab.research.google.com/drive/1xF6w0pQpxKV26tFF4q2CIHqkMvGTpwLI?usp=sharing)
 
 ## About the Course
