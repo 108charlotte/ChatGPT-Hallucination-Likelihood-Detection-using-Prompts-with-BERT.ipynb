@@ -1,47 +1,60 @@
-# Predicting ChatGPT Hallucinations with Prompts using BERT
-My final project for MIT's open-source Intro to Deep learning course. 
+# Using Prompts to Predict ChatGPT Hallucinations with BERT
+This is my final project for MIT's "Intro to Deep Learning" course on open courseware! 
+
+## Overview
+I attempted to fine-tune a BERT-base model to predict whether ChatGPT's response to a given prompt will include a hallucination. Ultimately, I didn't achieve an F1 score above 0.5 (F1 is the harmonic mean of precision and recall; the dataset's imbalance means 0.5 is better than random guessing but still indicates poor performance). These findings indicate that detectable patterns in prompts alone may not be sufficient to predict if a hallucination will occur. 
 
 ## Objective
-The goal of this project is to detect whether or not a prompt is likely to cause ChatGPT (for this dataset, but could also use other datasets for other models) to hallucinate, and if it is to put in place further precautions against hallucinations such as increasing RAG usage or fact verification on results. Rather than applying higher scrutiny to every task, this model would allow certain responses to be selectively analyzed for accuracy, resulting in an overal decrease in the computational cost associated with receiving a response.  
+If it were possible to predict the likelihood of a hallucination before the LLM responds, additional hallucination prevention measures could be put in place such as applying chain-of-thought prompting or, after response generation, stricter fact-checking. The goal of this experiment was to see if a BERT model might be able to accomplish this task for prompts sent to ChatGPT. 
 
-## Process
+## Methodology
 ### Dataset Creation
-I combined the [HaluEval general dataset](https://github.com/RUCAIBox/HaluEval) (4500 samples), several of [LibreEval's datasets](https://github.com/Arize-ai/LibreEval) (4200 samples), and the [ANAH dataset](https://huggingface.co/datasets/opencompass/anah) (783 samples) to create a ~9500 sample dataset consisting of two columns: an input (type string, called a prompt) and a binary label for whether or not that prompt resulted in a ChatGPT hallucination (type integer, 0/1). In the final dataset, there are 7291 samples of prompts which did not cause hallucinations and 2245 of prompts which caused hallucinations which makes it imbalanced. The colab link for generating this dataset can be found [here](https://colab.research.google.com/drive/1bDYQKSXsFnlV4rk53V5sWFWzzFaQr-aB#scrollTo=UAl4fhEWaBNL) and on GitHub [here](https://github.com/108charlotte/ChatGPT-Hallucination-Likelihood-Detection-using-Prompts-with-BERT.ipynb/blob/main/Colab_for_Generating_Dataset_of_Prompts_with_Binary_Hallucination_Labels.ipynb). The actual dataset can be downloaded in csv form [here](https://github.com/108charlotte/ChatGPT-Hallucination-Likelihood-Detection-using-Prompts-with-BERT.ipynb/blob/main/final_dataset.csv). In my training code, I refer to this dataset as final_dataset.csv. 
+To create my dataset, I combined segments of the [HaluEval dataset](https://github.com/RUCAIBox/HaluEval), datasets from [LibreEval](https://github.com/Arize-ai/LibreEval), and data from the [ANAH dataset](https://huggingface.co/datasets/opencompass/anah). I manipulated and combined these datasets using Google Colab in a file titled [Colab_for_Generating_Dataset_of_Prompts_with_Binary_Hallucination_Labels.ipynb](https://github.com/108charlotte/ChatGPT-Hallucination-Likelihood-Detection-from-Prompts-with-BERT/blob/main/Colab_for_Generating_Dataset_of_Prompts_with_Binary_Hallucination_Labels.ipynb), which I annotated and added to this repository. This dataset contains 9250 data points, and 75.73% (7005 samples) of prompts in this dataset did not result in a ChatGPT hallucination while 24.27% (2245 samples) did. If you would like to run the Colab on your own device, I also included a [folder](https://github.com/108charlotte/ChatGPT-Hallucination-Likelihood-Detection-from-Prompts-with-BERT/tree/main/Files%20for%20Dataset%20Creation) which contains all necessary files of the original data. However, if you only want to run the Colab for BERT setup and training, I would recommend initially downloading the [final dataset](https://github.com/108charlotte/ChatGPT-Hallucination-Likelihood-Detection-from-Prompts-with-BERT/blob/main/final_dataset.csv) instead, which is the result of running the dataset generation Colab. 
 
-### Model Creation
-Although originally I wanted to use a simple Pytorch neural network with a BERT tokenizer, it was unable to detect meaningful differences between prompts likely to cause hallucinations and those that aren't. So, I switched over to fine-tuning the final layers of a BERT model, which prompted me to compile the larger dataset I described above. I used both Kaggle and Google Colab while developing and testing different models in order to maximize the GPU available for training. My final code can be found at [this colab link](https://colab.research.google.com/drive/1xF6w0pQpxKV26tFF4q2CIHqkMvGTpwLI?usp=sharing). I ended up using LoRA to optimize my training, and after completing a hyperparemeter search over 18 possible combinations I decided on an r-value of 8, an alpha value of 32, and dropout of 0.2 ([here's](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide/lora-hyperparameters-guide) a great resource on what these parameters mean). Later, when model learning didn't sufficiently improve, I added the ["key"] layer to the list of trainable layers to increase the model's capacity to adapt to the data and used Claude to create a custom weighted trainer class to counteract my dataset imbalance. I also added a positive weight calculated from the class imbalance, then added a multiplier to increase positive predictions (will cause hallucination) since I chose to prioritize catching the majority of true positives at the expense of also detecting many false positives (I'll talk about this more in the results section).  
+### Model Architecture
+I used the [BERT base uncased](https://huggingface.co/google-bert/bert-base-uncased) model because it can detect patterns in language, which may help it detect patterns in prompts likely to cause hallucinations, and is already trained on a large data corpus, so I won't have to supply enough data to provide an understanding of language. The uncased variation allows for easier training with a smaller dataset since the model doesn't need to learn patterns in capitalization, and the base model allows for better generalization with limited data than the large model. I defined my model with BertForSequenceClassification. 
 
-### Resources
-I used articles such as [this one](https://machinelearningmastery.com/converting-pandas-dataframes-to-pytorch-dataloaders-for-custom-deep-learning-model-training/) on dataframes and dataloaders, [this one](https://medium.com/biased-algorithms/a-practical-guide-to-implementing-early-stopping-in-pytorch-for-model-training-99a7cbd46e9d) for implementing early stopping, and [this video](https://www.youtube.com/watch?v=3M2Gmuh5mtI) for understanding precision, recall, and f1 score. One of the most valuable resources was definitely [this video](https://www.youtube.com/watch?v=4QHg8Ix8WWQ) on fine-tuning BERT for text classification, since the video's task aligns closely with my own. Finally, I used Claude to write code for the LoRA hyperparameter grid search, adapt my training_metrics function, create a weighted trainer (mentioned in the model creation section), enahnce my list of training arguments to improve model performance, and implement early stopping. I cited all AI-generated code in my final Colab link [here](https://colab.research.google.com/drive/1xF6w0pQpxKV26tFF4q2CIHqkMvGTpwLI?usp=sharing)! 
+### Methods for Lessening Impact of Class Imbalance
+In order to discourage the model from simply predicting the majority class (no hallucination, or 0), I incorporated a custom weighted trainer, with the Pytorch implementation written by Claude, and added an additional weighting to the positive class (I experimented with what this value would be in the hyperparameter search). 
+
+### Hyperparameter Search
+After defining my model, I completed a hyperparameter search across different LoRA values and pos_weight values. I used Claude to write the search so that I could focus my efforts on analyzing the model's performance and improving it. I only used one learning rate since I needed the search to complete within 3 hours. I experimented with all combinations of the following hyperparameter values: 8 and 16 for the r value in LoRA, 16 and 32 the alpha value in LoRA, 0.15 and 0.2 for the dropout value in LoRA, 1.2 and 1.3 for the positive weight multiplier (in the custom weighted loss function). Each search permutation used the same learning rate (2e-4) since testing multiple along with testing many other hyperparameter values would be too computationally expensive. I chose this learning rate, which is higher than typically recommended for BERT, due to needing to see model improvement in a short number of epochs. 
 
 
-## Results
-My best results came from training with 3 LoRA layers and a 1.3 multiplier on the positive weight. Here are my results from Kaggle: 
+## Results and Analysis
+While looking at models, I rated them using their F1 scores since this model's goal is to predict as many true positives as possible without flagging too many false ones. 
+The highest maximum F1 value achieved by a configuration was 0.4678 (configuration 15, epoch 5, r=16, lora_alpha=32, lora_dropout=0.2, pos_weight_mult=1.2), and the lowest maximum F1 value for a configuration was 0.4436 (configuration 3, epoch 1, r=8, lora_alpha=16, lora_dropout=0.2, pos_weight_mult=1.2). These values are better than if the model had simply predicted all positives (F1=0.3906), and better than if it had guessed randomly (F1=0.3268), but since no combination was able to achieve an F1 score at or above 0.5, the model still has significant room for improvement in reliably predicting hallucinations. 
+Additionally, the fact that all tested hyperparameter combinations had F1 scores in a similar range suggests that hyperparameter tuning is unlikely to significantly boost the model's performance. 
 
-| Epoch | Validation Loss | Accuracy | Precision | Recall | F1 | T Pos | F Pos | F Neg | T Neg |
-|-------|-----------------|----------|-----------|--------|----|-------|-------|-------|-------|
-| 1 | 0.685910 | 0.553459 | 0.297787 | 0.657778 | 0.409972 | 148 | 349 | 77 | 380 |
-| 2 | 0.632393 | 0.545073 | 0.313725 | 0.782222 | 0.447837 | 176 | 385 | 49 | 344 |
-| 3 | 0.617831 | 0.615304 | 0.334884 | 0.640000 | 0.439695 | 144 | 286 | 81 | 443 |
-| 4 | 0.604451 | 0.517820 | 0.311396 | 0.862222 | 0.457547 | 194 | 429 | 31 | 300 |
-| 5 | 0.596196 | 0.590147 | 0.340385 | 0.786667 | 0.475168 | 177 | 343 | 48 | 386 |
-| 6 | 0.595957 | 0.582809 | 0.335238 | 0.782222 | 0.469333 | 176 | 349 | 49 | 380 |
-| 7 | 0.595688 | 0.578616 | 0.338208 | 0.822222 | 0.479275 | 185 | 362 | 40 | 367 |
+### Confusion Matrix
+![Confusion matrix for the best model](https://hc-cdn.hel1.your-objectstorage.com/s/v3/6e19d99aeadebafd_confusion_matrix_best.png)
+*Best model (Config 15, Epoch 5): 167 true positives, 323 false positives, 57 false negatives, and 378 true negatives*
 
-I selected the model at epoch 7 as my best model since it had a high recall (> 80%) but a higher F1 score than the model at epoch 4. The best model, however, would differ depending on the cost of the methods used to reduce hallucinations when the likelihood of one, as detected by this model, is high. For example, if the prevention method involves checking the accuracy of the information, thereby delaying the model's response to the user's query, then a model with higher precision would be necessary. However, if it only involves adapting the prompt to encourage the LLM to be more careful with its answer, it makes sense to sacrifice precision for a much higher recall (many false positives but most true positives caught). In the end, I looked at the model with the highest F1 score among those with a recall above 80%, which results in very few false negatives (only 40, or 4.19% of total prompts) with less than 50% of positives being false whereas with only a slightly higher recall value, at epoch 4 the model has over 50% false positives. 
+![Confusion matrix for the worst model](https://hc-cdn.hel1.your-objectstorage.com/s/v3/67d5032d98ca27c0_confusion_matrix_worst.png)
+*Worst model (Config 3, Epoch 1): 179 true positives, 404 false positives, 45 false negatives, and 297 true negatives*
 
-Here's another example of training results from Kaggle: 
-<img width="1049" height="295" alt="image" src="https://github.com/user-attachments/assets/7e22941f-5dd2-49b3-8680-beb694444b1b" />
+Both models have a high rate of false positives, with approximately one in every three positive predictions being a true positive and two being false alarms. However, both models have high recall (Config 3 recall in epoch 1 is 80%, Config 15 recall in epoch 5 is 75%). While high recall allows the model to detect more true positives, it is at the cost of precision which decreases the model's F1 and creates many false alarms. 
 
-Ultimately, an approach like this would be able to successfully flag prompts which make models hallucination-prone, and could be adapted to work with different models (though using different datasets) or for different hallucination reduction strategies (more computationally expensive v. less computationally expensive) through changing the positive weighting (as I did in this example) to encourage higher recall, higher precision, or higher F1. 
+### Training v. Validation Loss
+![Plot of Training and Validation Loss for Best Model](https://hc-cdn.hel1.your-objectstorage.com/s/v3/202bcc3a870081b5_loss_best.png)
+*Best model (Config 15, Epoch 5): Overfitting begins after Epoch 3*
 
-## Future Improvements
-I would like to design a model with a higher F1 score and which can acheive a higher accuracy. In the future, it would be good to reduce the trade-off between catching true positives and the high occurences of false positives. I could also work on compiling a larger dataset, since most of the datasets I found only included hallucinations but not the prompts which inspired them, which made it difficult to find enough data to train my model. 
+![Plot of Training and Validation Loss for Worst Model](https://hc-cdn.hel1.your-objectstorage.com/s/v3/272b23ab65cee90b_loss_worst.png)
+*Worst model (Config 3, Epoch 1): Overfitting begins immediately before Epoch 4*
 
-## Codebase Tour
-* Colab_for_Generating_Dataset_of_Prompts_with_Binary_Hallucination_Labels.ipynb: downloaded from Colab, my code for generating the final_dataset.csv file. Link to Colab [here](https://colab.research.google.com/drive/1bDYQKSXsFnlV4rk53V5sWFWzzFaQr-aB?usp=sharing)
-* final_dataset.csv: the final dataset generated from the Colab above
-* Google_Colab_BERT_Training.ipynb: downloaded from Colab, my code for training the final BERT model. Link to Colab [here](https://colab.research.google.com/drive/1xF6w0pQpxKV26tFF4q2CIHqkMvGTpwLI?usp=sharing)
+The best model's training and validation loss plot indicates overfitting beginning after Epoch 3, and the worst model at Epoch 4. In the end, both the best and worst models ended up with similar loss trajectories. These results suggest that the dataset may have been too small to train a BERT model on or, since recall is known to be high, that the model isn't detecting any reliable characteristics in true positive prompts which would allow it to have a high precision. 
 
-## About the Course
-As I mentioned at the beginning, this is my final project after completing MIT's "Intro to Deep Learning" course. I used the 2025 edition, and the course webpage can be found [here](https://introtodeeplearning.com/). My solutions to the labs can be found in [this](https://github.com/108charlotte/Labs-for-MIT-Intro-to-Deep-Learning) GitHub repository. 
+
+## Takeaways and Future Work
+### Limitations
+My largest limitation was computational cost and dataset size. In the future, it would be helpful to be able to test smaller learning rates since, under time constraints, I needed to see results in a small number of epochs. Regarding my dataset, I was only able to create a dataset of a little over 9k samples which is on the lower end for BERT fine-tuning. 
+
+### Conclusion
+Although F1 values above those from random guessing indicate that the model successfully learned some patterns in the data, the fact that the F1 values are still below 0.5 for all hyperparameters reveals that the model isn't learning patterns in prompts which can reliably predict hallucinations. The model's high recall can be attributed to the positive weight multiplier which encourages the model to aggressively predict positive labels. LoRA parameter tuning didn't help because there aren't strong enough patterns to detect in prompts which correspond with ChatGPT hallucinations. 
+
+### Future Work
+#### Minor Tweaks
+In the future, it would be beneficial to run this experiment with a lower learning rate, which may allow the model to detect more subtle patterns. Additionally, curating a larger dataset of 12-15k+ samples may help prevent overfitting.
+
+#### New Directions
+However, since this model struggled detecting patterns in prompts alone, it could be beneficial to explore how prompt metadata, such as question type or tone, may influence the likelihood of a hallucination. Additionally, understanding which patterns this model is picking up could reveal more targeted directions for future exploration, for example if emotionally charged phrases or contested past events are leading to a higher hallucination rate. 
