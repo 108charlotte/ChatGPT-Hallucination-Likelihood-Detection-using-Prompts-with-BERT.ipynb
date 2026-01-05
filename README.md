@@ -1,5 +1,5 @@
 # Using Prompts to Predict ChatGPT Hallucinations with BERT
-This is my final project for MIT's "Intro to Deep Learning" course on open courseware! 
+This is my final project for [MIT's "Intro to Deep Learning" course](https://introtodeeplearning.com/2025/index.html) on open courseware! 
 
 ## Overview
 I attempted to fine-tune a BERT-base model to predict whether ChatGPT's response to a given prompt will include a hallucination. Ultimately, I didn't achieve an F1 score above 0.5 (F1 is the harmonic mean of precision and recall; the dataset's imbalance means 0.5 is better than random guessing but still indicates poor performance). These findings indicate that detectable patterns in prompts alone may not be sufficient to predict if a hallucination will occur. 
